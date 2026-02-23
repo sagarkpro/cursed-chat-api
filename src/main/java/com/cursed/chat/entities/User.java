@@ -3,6 +3,7 @@ package com.cursed.chat.entities;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -57,6 +58,13 @@ public class User extends BaseEntity implements UserDetails {
     }
 
     public String getDisplayName() {
-        return this.firstName + " " + this.middleName + " " + this.lastName;
+        StringBuilder sb = new StringBuilder(this.firstName);
+        if (!StringUtils.isBlank(this.middleName)) {
+            sb.append(" ").append(this.middleName);
+        }
+        if (!StringUtils.isBlank(this.lastName)) {
+            sb.append(" ").append(this.lastName);
+        }
+        return sb.toString();
     }
 }

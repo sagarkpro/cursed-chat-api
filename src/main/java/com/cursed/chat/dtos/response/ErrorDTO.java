@@ -2,6 +2,8 @@ package com.cursed.chat.dtos.response;
 
 import java.time.LocalDateTime;
 
+import org.springframework.http.HttpStatus;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,4 +20,5 @@ public class ErrorDTO {
     String message;
     String details;
     LocalDateTime timestamp;
+    HttpStatus status;
 }

@@ -15,10 +15,10 @@ public interface UserService {
 
     BaseResponseDTO<LoginResponseDTO> verifyOtp(VerifyOTPDTO request);
 
-    Optional<User> getUserByEmail(String email);
+    BaseResponseDTO<User> getUserByEmail(String email);
 
     BaseResponseDTO<LoginResponseDTO> login(String email, String password);
 
-    List<User> findAllUsers();
+    BaseResponseDTO<List<User>> findAllUsers();
 
 }

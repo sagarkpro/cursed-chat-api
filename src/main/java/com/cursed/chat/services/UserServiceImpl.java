@@ -49,6 +49,22 @@ public class UserServiceImpl implements UserService {
 
     public BaseResponseDTO<RegisterResponseDTO> register(RegisterDTO request) {
         try {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                return BaseResponseDTO.<RegisterResponseDTO>builder()
+                        .success(false)
+                        .error(ErrorDTO.builder()
+                                .message("User already exists")
+                                .build())
+                        .build();
+            }
+            if (userRepository.existsByUsername(request.getUsername())) {
+                return BaseResponseDTO.<RegisterResponseDTO>builder()
+                        .success(false)
+                        .error(ErrorDTO.builder()
+                                .message("This username is taken by another user")
+                                .build())
+                        .build();
+            }
             User user = User.builder()
                     .createdAt(Instant.now())
                     .email(request.getEmail())
@@ -61,11 +77,10 @@ public class UserServiceImpl implements UserService {
 
             User res = userRepository.save(user);
 
-            String verificationToken = jwtUtils.generateShortLivedToken(user);
             String otp = RandomStringUtils.secure().nextAlphanumeric(6).toUpperCase();
-            CursedLogger.info("OTP for user " + user.getEmail() + " is: ", otp);
+            CursedLogger.info("OTP for user " + user.getEmail() + " is: " + otp);
             redisService.save(user.getEmail() + RedisKeys.OTP_VERIFICATION, objectMapper.valueToTree(
-                    new RedisOTPVerification(otp, user.getEmail(), verificationToken)));
+                    new RedisOTPVerification(otp, user.getEmail())));
 
             sendEmailVerificationOtp(user, otp);
             return BaseResponseDTO.<RegisterResponseDTO>builder()
@@ -83,27 +98,45 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Optional<User> getUserByEmail(String email) {
-        if (StringUtils.isBlank(email)) {
-            throw new IllegalArgumentException("Email is required");
-        }
+    public BaseResponseDTO<User> getUserByEmail(String email) {
         User user = userRepository.findByEmail(email);
-        return Optional.of(user);
+        return BaseResponseDTO.<User>builder()
+                .data(user)
+                .success(true)
+                .build();
     }
 
     @Override
     public BaseResponseDTO<LoginResponseDTO> login(String email, String password) {
-        if (StringUtils.isBlank(email)) {
-            throw new IllegalArgumentException("Email is required");
-        }
-        if (StringUtils.isBlank(password)) {
-            throw new IllegalArgumentException("password is required");
-        }
         User user = userRepository.findByEmail(email);
         if (user == null) {
-            throw new NoSuchElementException("Invalid email/password");
+            return BaseResponseDTO.<LoginResponseDTO>builder()
+                    .success(false)
+                    .error(ErrorDTO
+                            .builder()
+                            .message("Invalid email/password")
+                            .build())
+                    .build();
         }
         if (passwordEncoder.matches(password, user.getPassword())) {
+            if (!user.isVerified()) {
+                return BaseResponseDTO.<LoginResponseDTO>builder()
+                        .success(false)
+                        .error(ErrorDTO
+                                .builder()
+                                .message("Email not verified")
+                                .build())
+                        .build();
+            }
+            if (!user.isActive()) {
+                return BaseResponseDTO.<LoginResponseDTO>builder()
+                        .success(false)
+                        .error(ErrorDTO
+                                .builder()
+                                .message("User is disabled")
+                                .build())
+                        .build();
+            }
             String token = jwtUtils.generateToken(user);
             return BaseResponseDTO.<LoginResponseDTO>builder()
                     .success(true)
@@ -122,32 +155,33 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<User> findAllUsers() {
-        return userRepository.findAll();
+    public BaseResponseDTO<List<User>> findAllUsers() {
+        return BaseResponseDTO.<List<User>>builder()
+                .data(userRepository.findAll())
+                .success(true)
+                .build();
     }
 
     @Override
     public BaseResponseDTO<LoginResponseDTO> verifyOtp(VerifyOTPDTO request) {
-        if (jwtUtils.verifySignature(request.getVerificationToken())) {
-            var user = jwtUtils.getUserFromToken(request.getVerificationToken());
-            if (user.getEmail().equals(request.getEmail())) {
-                var otpVerification = redisService.getJson(user.getEmail() + RedisKeys.OTP_VERIFICATION);
-                var otpVerificationRecord = objectMapper.treeToValue(otpVerification, RedisOTPVerification.class);
-                if (otpVerificationRecord.otp().equals(request.getOtp())) {
-                    user.setVerified(true);
-                    userRepository.save(user);
-                    String accessToken = jwtUtils.generateToken(user);
-                    return BaseResponseDTO.<LoginResponseDTO>builder()
-                            .data(LoginResponseDTO.builder()
-                                    .accessToken(accessToken)
-                                    .build())
-                            .build();
-                } else {
-                    return BaseResponseDTO.<LoginResponseDTO>builder()
-                            .error(ErrorDTO.builder()
-                                    .message("Invalid OTP").build())
-                            .build();
-                }
+        var user = userRepository.findByEmail(request.getEmail());
+        if (user != null && !user.isVerified()) {
+            var otpVerification = redisService.getJson(user.getEmail() + RedisKeys.OTP_VERIFICATION);
+            var otpVerificationRecord = objectMapper.treeToValue(otpVerification, RedisOTPVerification.class);
+            if (otpVerificationRecord.otp().equals(request.getOtp())) {
+                user.setVerified(true);
+                userRepository.save(user);
+                String accessToken = jwtUtils.generateToken(user);
+                return BaseResponseDTO.<LoginResponseDTO>builder()
+                        .data(LoginResponseDTO.builder()
+                                .accessToken(accessToken)
+                                .build())
+                        .build();
+            } else {
+                return BaseResponseDTO.<LoginResponseDTO>builder()
+                        .error(ErrorDTO.builder()
+                                .message("Invalid OTP").build())
+                        .build();
             }
         }
         return BaseResponseDTO.<LoginResponseDTO>builder()

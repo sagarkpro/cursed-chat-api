@@ -25,7 +25,4 @@ public class VerifyOTPDTO {
     @NotBlank
     @Size(min = 6, max = 6)
     String otp;
-
-    @NotBlank
-    String verificationToken;
 }
