@@ -1,5 +1,6 @@
 package com.cursed.chat.services;
 
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -33,7 +34,7 @@ public class MessageServiceImpl implements MessageService {
             var user = currentUser.get();
             var message = Message.builder()
                     .content(request.getContent())
-                    .createdAt(ZonedDateTime.now().toOffsetDateTime())
+                    .createdAt(Instant.now())
                     .receiverId(request.getReceiverId())
                     .receiverType(request.getReceiverType())
                     .senderId(user.getId())

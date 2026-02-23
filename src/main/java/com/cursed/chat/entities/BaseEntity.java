@@ -1,6 +1,6 @@
 package com.cursed.chat.entities;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.data.annotation.Id;
@@ -21,7 +21,7 @@ public class BaseEntity {
     @Id
     @Builder.Default
     String id = UUID.randomUUID().toString();
-    OffsetDateTime createdAt;
-    OffsetDateTime updatedAt;
+    Instant createdAt;
+    Instant updatedAt;
     String updatedBy;
 }
